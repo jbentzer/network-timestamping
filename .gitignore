@@ -1,0 +1,35 @@
+# === Compiled object files, binaries, libraries ===
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+
+# === Precompiled headers and symbol files ===
+*.gch
+*.pch
+*.pdb
+
+# === Build directories ===
+build/
+Build/
+bin/
+Bin/
+CMakeFiles/
+CMakeCache
+
+# === Editor files ===
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
+.vscode/
