@@ -33,3 +33,7 @@ CMakeCache
 *.bak
 *.orig
 .vscode/
+
+# === Built files ===
+receiver
+sender
