@@ -46,3 +46,42 @@ or
   g++ sender.cpp -o sender
 ```
 
+## Usage
+
+### Sender
+
+A simple UDP sender that can send messages to a specified destination and port.
+
+Help:
+
+```console
+./sender [--help] [-h]
+```
+
+Default destination is 127.0.0.1 and default port is 319 (PTP event messages).
+
+Example:
+
+```console
+./sender --dest 192.168.1.100 --port 12345 --msg "Hello, World!"
+```
+
+### Receiver
+
+A simple UDP receiver that listens on a specified port and prints received messages along with their software and hardware timestamps.
+
+Help:
+
+```console
+./receiver [--help] [-h]
+```
+
+Default port is 319 (PTP event messages).
+Note: Requires root privileges to receive hardware timestamps.
+
+
+Example:
+
+```console
+sudo ./receiver --port 12345
+```

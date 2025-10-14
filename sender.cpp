@@ -66,6 +66,15 @@ int main(int argc, char *argv[]) {
         std::cout << "Message: " << args["-m"] << std::endl;
         msg = args["-m"];
     }
+    if (args.count("--help") || args.count("-h")) {
+        std::cout << "Usage: " << argv[0] << " [--dest <destination>] [-d <destination>] [--port <port>] [-p <port>] [--msg <message>] [-m <message>] [-v|--verbose]\n"
+                  << "  --dest, -d <destination>  Destination IP address or hostname (default 127.0.0.1)\n"
+                  << "  --port, -p <port>         Destination UDP port (default 319)\n"
+                  << "  --msg, -m <message>       Message to send (default 'test packet')\n"
+                  << "  --verbose, -v             Enable verbose output\n"
+                  << "  --help, -h                Show this help message\n";
+        return 0;
+    }   
 
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock < 0) { perror("socket"); return 1; }
