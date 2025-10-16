@@ -14,6 +14,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <netdb.h> 
+#include <getopt.h>
 
 bool startsWith(const std::string& str, const std::string& prefix) {
     return str.size() >= prefix.size() && str.substr(0, prefix.size()) == prefix;
@@ -25,56 +26,59 @@ int main(int argc, char *argv[]) {
     std::string dest = "127.0.0.1";
     std::string msg = "test packet";
 
-    std::unordered_map<std::string, std::string> args;
-    for (int i = 1; i < argc; ++i) {
-        std::string key = argv[i];
-        if (startsWith(key, "-")) {
-            if (i + 1 < argc && argv[i + 1][0] != '-') {
-                args[key] = argv[i + 1];
-                ++i;
-            } else {
-                args[key] = "true";
-            }
-        } 
-    }
+    // Argument parsing
+    struct option longopts[] = {
+        { "help", no_argument, NULL, 1 },
+        { "port", required_argument, NULL, 'p' },
+        { "dest", required_argument, NULL, 'd' },
+        { "msg", required_argument, NULL, 'm' },
+        { "verbose", no_argument, NULL, 'v' },
+        { 0 }
+        };
 
-    if (args.count("--port")) {
-        std::cout << "Port: " << args["--port"] << std::endl;
-        port = std::stoi(args["--port"]);
+    int opt;
+    std::string optArgStr;
+    while (1) {
+        opt = getopt_long (argc, argv, "hd:p:m:v", longopts, 0);
+
+        if (opt == -1) {
+            break;
+        }
+
+        // optarg is a global variable in getopt.h. it contains the argument
+        // for the current option. it is null if there was no argument (only if optional_argument).
+        optArgStr = optarg ? optarg : "";
+
+        switch (opt) {
+        case '?':
+        case 'h':
+            std::cout << "Usage: " << argv[0] << " [--dest <destination>] [-d <destination>] [--port <port>] [-p <port>] [--msg <message>] [-m <message>] [-v|--verbose]\n"
+                    << "  --dest, -d <destination>  Destination IP address or hostname (default 127.0.0.1)\n"
+                    << "  --port, -p <port>         Destination UDP port (default 319)\n"
+                    << "  --msg, -m <message>       Message to send (default 'test packet')\n"
+                    << "  --verbose, -v             Enable verbose output\n"
+                    << "  --help, -h                Show this help message\n";
+            return 0;
+        case 'p':
+            std::cout << "Port: " << optArgStr << std::endl;
+            port = std::stoi(optArgStr);
+            break;
+        case 'd':
+            std::cout << "Destination: " << optArgStr << std::endl;
+            dest = optArgStr;
+            break;
+        case 'm':
+            std::cout << "Message: " << optArgStr << std::endl;
+            msg = optArgStr;
+            break;
+        case 'v':
+            std::cout << "Verbose mode ON\n";
+            verbose = true;
+            break;
+        default:
+            break;
+        }
     }
-    if (args.count("-p")) {
-        std::cout << "Port: " << args["-p"] << std::endl;
-        port = std::stoi(args["-p"]);
-    }
-    if (args.count("-v") || args.count("--verbose")) {
-        std::cout << "Verbose mode ON\n";
-        verbose = true;
-    }
-    if (args.count("--dest")) {
-        std::cout << "Destination: " << args["--dest"] << std::endl;
-        dest = args["--dest"];
-    }
-    if (args.count("-d")) {
-        std::cout << "Destination: " << args["-d"] << std::endl;
-        dest = args["-d"];
-    }
-    if (args.count("--msg")) {
-        std::cout << "Message: " << args["--msg"] << std::endl;
-        msg = args["--msg"];
-    }
-    if (args.count("-m")) {
-        std::cout << "Message: " << args["-m"] << std::endl;
-        msg = args["-m"];
-    }
-    if (args.count("--help") || args.count("-h")) {
-        std::cout << "Usage: " << argv[0] << " [--dest <destination>] [-d <destination>] [--port <port>] [-p <port>] [--msg <message>] [-m <message>] [-v|--verbose]\n"
-                  << "  --dest, -d <destination>  Destination IP address or hostname (default 127.0.0.1)\n"
-                  << "  --port, -p <port>         Destination UDP port (default 319)\n"
-                  << "  --msg, -m <message>       Message to send (default 'test packet')\n"
-                  << "  --verbose, -v             Enable verbose output\n"
-                  << "  --help, -h                Show this help message\n";
-        return 0;
-    }   
 
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock < 0) { perror("socket"); return 1; }

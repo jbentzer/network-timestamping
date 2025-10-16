@@ -28,6 +28,7 @@
 #include <linux/sockios.h>
 #include <sys/ioctl.h>
 #include <vector>
+#include <getopt.h>
 
 bool startsWith(const std::string& str, const std::string& prefix) {
     return str.size() >= prefix.size() && str.substr(0, prefix.size()) == prefix;
@@ -67,6 +68,7 @@ void enableHwTimestamps(int sock, const char* ifname) {
 
     memset(&ifr, 0, sizeof(ifr));
     strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name) - 1);
+    ifr.ifr_name[sizeof(ifr.ifr_name) - 1] = '\0';
     
     // Set up the hardware timestamping configuration
     memset(&config, 0, sizeof(config));
@@ -99,83 +101,71 @@ int main(int argc, char *argv[]) {
     bool useHwTimestamps = false;
     std::vector<std::string> interfacesToEnable;
 
-    // Simple argument parsing
-    std::unordered_map<std::string, std::string> args;
-    for (int i = 1; i < argc; ++i) {
-        std::string key = argv[i];
-        if (startsWith(key, "-")) {
-            if (i + 1 < argc && argv[i + 1][0] != '-') {
-                args[key] = argv[i + 1];
-                ++i;
-            } else {
-                args[key] = "true";
-            }
-        } 
-    }
+    // Argument parsing
+    struct option longopts[] = {
+        { "help", no_argument, NULL, 1 },
+        { "port", required_argument, NULL, 'p' },
+        { "type", required_argument, NULL, 't' },
+        { "ifc", required_argument, NULL, 'i' },
+        { "verbose", no_argument, NULL, 'v' },
+        { 0 }
+        };
 
-    if (args.count("--port")) {
-        std::cout << "Port: " << args["--port"] << std::endl;
-        port = std::stoi(args["--port"]);
-    }
-    if (args.count("-p")) {
-        std::cout << "Port: " << args["-p"] << std::endl;
-        port = std::stoi(args["-p"]);
-    }
-    if (args.count("-t")) {
-        std::string type = args["-t"];
-        std::cout << "Timestamp type: " << type << std::endl;
-        if (type == "hw") {
-            useHwTimestamps = true;
-        } else if (type == "sw") {
-            useHwTimestamps = false;
-        } else {
-            std::cerr << "Unknown timestamp type: " << type << ", use 'hw' or 'sw'" << std::endl;
-            return 1;
+    int opt;
+    std::string optArgStr;
+    while (1) {
+        opt = getopt_long (argc, argv, "hp:t:i:v", longopts, 0);
+
+        if (opt == -1) {
+            break;
+        }
+
+        // optarg is a global variable in getopt.h. it contains the argument
+        // for the current option. it is null if there was no argument (only if optional_argument).
+        optArgStr = optarg ? optarg : "";
+
+        switch (opt) {
+        case '?':
+        case 'h':
+            std::cout << "Usage: " << argv[0] << " [--port <port>] [-p <port>] [-t <type>] [-v|--verbose]\n"
+                    << "  --port, -p <port>    UDP port to listen on (default 319)\n"
+                    << "  --type, -t <type>    Timestamp type: 'hw' for hardware, 'sw' for software (default 'sw')\n"
+                    << "  --ifc, -i <ifname>   Network interface to use (default all interfaces)\n"
+                    << "  --verbose, -v        Enable verbose output\n"
+                    << "  --help, -h           Show this help message\n";
+            return 0;
+        case 'p':
+            std::cout << "Port: " << optArgStr << std::endl;
+            port = std::stoi(optArgStr);
+            break;
+        case 't':
+            optArgStr = optArgStr;
+            std::cout << "Timestamp type: " << optArgStr << std::endl;
+            if (optArgStr == "hw") {
+                useHwTimestamps = true;
+            } else if (optArgStr == "sw") {
+                useHwTimestamps = false;
+            } else {
+                std::cerr << "Unknown timestamp type: " << optArgStr << ", use 'hw' or 'sw'" << std::endl;
+                return 1;
+            }
+            break;
+        case 'i':
+            if (interfacesToEnable.size() > 0) {
+                std::cerr << "Multiple interface options are not supported in this version." << std::endl;
+                return 1;
+            }
+            std::cout << "Using interface: " << optArgStr << std::endl;
+            interfacesToEnable.push_back(optArgStr);
+            break;
+        case 'v':
+            std::cout << "Verbose mode ON\n";
+            verbose = true;
+            break;
+        default:
+            break;
         }
     }
-    if (args.count("--type")) {
-        std::string type = args["--type"];
-        std::cout << "Timestamp type: " << type << std::endl;
-        if (type == "hw") {
-            useHwTimestamps = true;
-        } else if (type == "sw") {
-            useHwTimestamps = false;
-        } else {
-            std::cerr << "Unknown timestamp type: " << type << ", use 'hw' or 'sw'" << std::endl;
-            return 1;
-        }
-    }
-    if (args.count("-i")) {
-        if (args.count("-i") + args.count("--ifc") > 1) {
-            std::cerr << "Multiple interface options are not supported in this version." << std::endl;
-            return 1;
-        }
-        std::string ifname = args["-i"];
-        std::cout << "Using interface: " << ifname << std::endl;
-        interfacesToEnable.push_back(ifname);
-    }
-    if (args.count("--ifc")) {
-        if (args.count("--ifc") + args.count("-i") > 1) {
-            std::cerr << "Multiple interface options are not supported in this version." << std::endl;
-            return 1;
-        }
-        std::string ifname = args["--ifc"];
-        std::cout << "Using interface: " << ifname << std::endl;
-        interfacesToEnable.push_back(ifname);
-    }
-    if (args.count("-v") || args.count("--verbose")) {
-        std::cout << "Verbose mode ON\n";
-        verbose = true;
-    }
-    if (args.count("--help") || args.count("-h")) {
-        std::cout << "Usage: " << argv[0] << " [--port <port>] [-p <port>] [-t <type>] [-v|--verbose]\n"
-                  << "  --port, -p <port>    UDP port to listen on (default 319)\n"
-                  << "  --type, -t <type>    Timestamp type: 'hw' for hardware, 'sw' for software (default 'sw')\n"
-                  << "  --ifc, -i <ifname>   Network interface to use (default all interfaces)\n"
-                  << "  --verbose, -v        Enable verbose output\n"
-                  << "  --help, -h           Show this help message\n";
-        return 0;
-    }   
 
     // Create UDP socket
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
